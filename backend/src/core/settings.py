@@ -38,8 +38,19 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',  # Для авторизации Android
-    'core'
+    'core',
+    'drf_spectacular',
+
+    'users',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [  # Аутентификация
+        'rest_framework.authentication.TokenAuthentication',  # Для Android
+        'rest_framework.authentication.SessionAuthentication',  # Для Web'а
+    ],
+}
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',

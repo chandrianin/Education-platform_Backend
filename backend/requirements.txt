@@ -4,3 +4,4 @@ djangorestframework
 psycopg2-binary
 django-cors-headers
 environ
+drf_spectacular
