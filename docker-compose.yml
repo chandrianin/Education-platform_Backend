@@ -1,6 +1,10 @@
 services:
   db:
     image: postgres:15
+    deploy:
+      resources:
+        limits:
+          memory: 300M
     container_name: education_db
     restart: always
     volumes:
@@ -14,6 +18,10 @@ services:
 
   web:
     build: ./backend
+    deploy:
+      resources:
+        limits:
+          memory: 400M
     container_name: education_backend
     command: python src/manage.py runserver 0.0.0.0:8000
     volumes:
