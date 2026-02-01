@@ -23,12 +23,13 @@ SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
 # Допустимые названия домена
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['methodical-space.ru', '5.253.189.197', 'localhost']
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 INSTALLED_APPS = [
+    'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -126,6 +127,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR.parent / 'static'
 
 SPECTACULAR_SETTINGS = {
     'APPEND_COMPONENTS': {

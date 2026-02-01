@@ -6,3 +6,4 @@ django-cors-headers
 environ
 drf_spectacular
 Pillow
+django-unfold
