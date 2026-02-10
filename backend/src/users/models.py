@@ -9,7 +9,7 @@ class Profile(models.Model):
 
     full_name = models.CharField("ФИО", max_length=255, blank=True)
 
-    # TODO переделать на заранее определенный список организаций
+    # TODO переделать на заранее определенный список должностей
     position = models.CharField("Должность", max_length=200, blank=True)
 
     # TODO переделать на заранее определенный список организаций
@@ -21,7 +21,7 @@ class Profile(models.Model):
     # TODO сохраненные материалы
 
     def __str__(self):
-        return f"Профиль: {self.full_name}"
+        return f"{self.full_name}"
 
 
 # Сигналы, связывающие Profile с User

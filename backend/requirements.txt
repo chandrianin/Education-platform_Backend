@@ -7,3 +7,5 @@ environ
 drf_spectacular
 Pillow
 django-unfold
+pytils
+django-filter

@@ -22,6 +22,8 @@ environ.Env.read_env(os.path.join(Path(__file__).resolve().parent.parent.parent,
 SECRET_KEY = env('SECRET_KEY')
 DEBUG = env('DEBUG')
 
+CSRF_TRUSTED_ORIGINS = ['https://methodical-space.ru']
+
 # Допустимые названия домена
 ALLOWED_HOSTS = ['methodical-space.ru', '5.253.189.197', 'localhost']
 
@@ -39,7 +41,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',  # Для авторизации Android
-
+    'django_filters',
     'core',
 
     'drf_spectacular',
@@ -87,16 +89,13 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
 DATABASES = {
     'default': env.db(),
 }
 
-# Password validation
-# https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
+# TODO добавить bcrypt
 
+# гуглить PwnedPasswordValidator
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -112,9 +111,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/6.0/topics/i18n/
-
 LANGUAGE_CODE = 'ru-ru'
 
 TIME_ZONE = 'Europe/Kaliningrad'
@@ -123,11 +119,11 @@ USE_I18N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
-
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR.parent / 'static'
+
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR.parent / 'media'
 
 SPECTACULAR_SETTINGS = {
     'APPEND_COMPONENTS': {
