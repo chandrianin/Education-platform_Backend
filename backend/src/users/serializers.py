@@ -4,9 +4,15 @@ from .models import Profile
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    favorites = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='slug'
+    )
+
     class Meta:
         model = Profile
-        fields = ['full_name', 'position', 'organization']
+        fields = ['full_name', 'position', 'organization', 'favorites']
 
 
 class UserSerializer(serializers.ModelSerializer):

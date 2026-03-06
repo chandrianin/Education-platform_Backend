@@ -1,9 +1,66 @@
+import logging
+
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from rest_framework import permissions, viewsets, filters, status
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import LibraryFile
-from .serializers import LibraryFileSerializer
+from rest_framework.decorators import action
+from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
+from .models import LibraryFile, Category
+from .serializers import LibraryFileSerializer, CategorySerializer
+
+UNAUTHORIZED_RESPONSE = OpenApiResponse(
+    description="Пользователь не авторизован",
+    response=OpenApiTypes.OBJECT,
+    examples=[OpenApiExample(
+        "Пример ответа",
+        value={
+            "detail": "Учетные данные не были предоставлены."
+        }
+    )])
+
+FORBIDDEN_RESPONSE = OpenApiResponse(
+    description="Нет прав на редактирование",
+    response=OpenApiTypes.OBJECT,
+    examples=[
+        OpenApiExample(
+            "Пример ответа",
+            value={
+                "detail": "У вас недостаточно прав для выполнения данного действия."
+            }
+        )
+    ]
+)
+NOT_FOUND_RESPONSE = OpenApiResponse(
+    description="Файл не найден",
+    response=OpenApiTypes.OBJECT,
+    examples=[
+        OpenApiExample(
+            "Пример ответа",
+            value={
+                "detail": "No LibraryFile matches the given query."
+            }
+        )
+    ]
+)
+
+logger = logging.getLogger("library")
+
+
+def truncate_dict(data, limit=100):
+    """
+    Обрезает строки в словаре до `limit` символов.
+    Работает рекурсивно для вложенных словарей и списков.
+    """
+    if isinstance(data, dict):
+        return {k: truncate_dict(v, limit) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [truncate_dict(v, limit) for v in data]
+    elif isinstance(data, str):
+        return data[:limit]
+    else:
+        return data
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):
@@ -15,6 +72,31 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
         return obj.author == request.user
 
 
+@extend_schema(
+    summary="Список категорий библиотеки",
+    description="Возвращает список всех категорий методических материалов",
+    tags=["Библиотека"],
+    responses={
+        status.HTTP_200_OK: CategorySerializer(many=True)
+    },
+    examples=[
+        OpenApiExample(
+            "Пример ответа",
+            value=[
+                {"id": 1, "name": "Методические материалы"},
+                {"id": 2, "name": "Видео"},
+                {"id": 3, "name": "Изображения"}
+            ],
+            response_only=True
+        )
+    ]
+)
+class LibraryCategoriesView(ListAPIView):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+
+
+@extend_schema(tags=["Библиотека"])
 class LibraryFileViewSet(viewsets.ModelViewSet):
     queryset = LibraryFile.objects.all()
     serializer_class = LibraryFileSerializer
@@ -24,23 +106,49 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
     filterset_fields = ['categories', 'file_type', 'author']
     ordering_fields = ['title', 'created_at']
     ordering = ['-created_at']  # по умолчанию новые сверху
-    search_fields = ['title', 'description', 'author']
+    search_fields = ['title', 'description', 'author__full_name']
     lookup_field = 'slug'
+
+    @extend_schema(
+        summary="Добавление файла в избранное авторизованного пользователя",
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                description="Файл добавлен в избранное",
+                response=OpenApiTypes.OBJECT
+            ),
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+        },
+    )
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def favorite(self, request, slug=None):
+        file = self.get_object()
+        profile = request.user.profile
+        profile.favorites.add(file)
+        return Response({"detail": "Добавлено в избранное"}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Удаление файла из избранного",
+        request=None,
+        responses={
+            200: OpenApiResponse(
+                description="Файл удалён из избранного"
+            ),
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+        },
+    )
+    @favorite.mapping.delete
+    def unfavorite(self, request, slug=None):
+        file = self.get_object()
+        profile = request.user.profile
+        profile.favorites.remove(file)
+        return Response({"detail": "Удалено из избранного"}, status=status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    # def get_object(self):
-    #     """Позволяет получать объект по ID и по Slug"""
-    #     # lookup_field = self.kwargs.get('pk')
-    #     # if lookup_field.isdigit():
-    #     #     return super().get_object()
-    #     self.lookup_field = 'slug'
-    #     return super().get_object()
-
     @extend_schema(
         summary="Список файлов",
-        tags=["Библиотека"],
         description="Возвращает список всех файлов с возможностью фильтрации, поиска и сортировки",
         responses={
             status.HTTP_200_OK: OpenApiResponse(
@@ -55,7 +163,7 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                                 "title": "Пример документа",
                                 "description": "Описание документа",
                                 "file_type": "document",
-                                "file": "https://methodical-space.ru/media/library/primer.pdf",
+                                "file": "https://methodical-space.ru/media/library/2026/02/primer.pdf",
                                 "category_details": [{"id": 1, "name": "Чек-лист"}],
                                 "author_name": "ivan",
                                 "created_at": "2026-02-10T12:00:00Z"
@@ -72,12 +180,11 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Получение информации о файле по Slug",
-        tags=["Библиотека"],
         description="Возвращает данные полей БД о выбранном файле по его уникальному Slug",
         responses={
             status.HTTP_200_OK: OpenApiResponse(
                 description="Файл найден",
-                response=LibraryFileSerializer,
+                response=LibraryFileSerializer(),
                 examples=[
                     OpenApiExample(
                         "Пример ответа",
@@ -86,7 +193,7 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                             "title": "Пример документа",
                             "description": "Описание документа",
                             "file_type": "document",
-                            "file": "https://methodical-space.ru/media/library/primer.pdf",
+                            "file": "https://methodical-space.ru/media/library/2026/02/primer.pdf",
                             "category_details": [{"id": 1, "name": "Чек-лист"}],
                             "author_name": "ivan",
                             "created_at": "2026-02-10T12:00:00Z"
@@ -94,18 +201,7 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                     )
                 ]
             ),
-            status.HTTP_404_NOT_FOUND: OpenApiResponse(
-                description="Файл не найден",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "No LibraryFile matches the given query."
-                        }
-                    )
-                ]
-            )
+            status.HTTP_404_NOT_FOUND: NOT_FOUND_RESPONSE
         }
     )
     def retrieve(self, request, *args, **kwargs):
@@ -113,13 +209,12 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Создание нового файла",
-        tags=["Библиотека"],
         description="Позволяет авторизованному пользователю загрузить новый файл",
         request=LibraryFileSerializer,
         responses={
             status.HTTP_201_CREATED: OpenApiResponse(
                 description="Успешная загрузка файла",
-                response=LibraryFileSerializer,
+                response=LibraryFileSerializer(),
                 examples=[
                     OpenApiExample(
                         "Пример запроса",
@@ -138,7 +233,7 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                             "title": "Новый документ",
                             "description": "Описание нового документа",
                             "file_type": "document",
-                            "file": "https://methodical-space.ru/media/library/novyy.pdf",
+                            "file": "https://methodical-space.ru/media/library/2026/02/novyy.pdf",
                             "category_details": [{"id": 1, "name": "Чек-лист"}, {"id": 2, "name": "Тест"}],
                             "author_name": "ivan",
                             "created_at": "2026-02-10T12:10:00Z"
@@ -177,28 +272,26 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                         })
 
                 ]),
-            status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-                description="Пользователь не авторизован",
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(
-                    "Пример ответа",
-                    value={
-                        "detail": "Учетные данные не были предоставлены."
-                    }
-                )]), },
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+        },
     )
     def create(self, request, *args, **kwargs):
+        truncated_data = truncate_dict(request.data)
+        logger.debug("JSON пользователя: %s", truncated_data)
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            logger.debug("Ошибка сериализатора: %s", serializer.errors)
+
         return super().create(request, *args, **kwargs)
 
     @extend_schema(
         summary="Полное обновление файла",
-        tags=["Библиотека"],
         description="Обновляет все поля существующего файла",
         request=LibraryFileSerializer,
         responses={
             status.HTTP_200_OK: OpenApiResponse(
                 description="Файл обновлён",
-                response=LibraryFileSerializer,
+                response=LibraryFileSerializer(),
                 examples=[
                     OpenApiExample(
                         "Пример ответа",
@@ -230,39 +323,9 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                     }
                 )]
             ),
-            status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-                description="Пользователь не авторизован",
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(
-                    "Пример ответа",
-                    value={
-                        "detail": "Учетные данные не были предоставлены."
-                    }
-                )]),
-            status.HTTP_403_FORBIDDEN: OpenApiResponse(
-                description="Нет прав на редактирование",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "У вас недостаточно прав для выполнения данного действия."
-                        }
-                    )
-                ]
-            ),
-            status.HTTP_404_NOT_FOUND: OpenApiResponse(
-                description="Файл не найден",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "No LibraryFile matches the given query."
-                        }
-                    )
-                ]
-            )
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+            status.HTTP_403_FORBIDDEN: FORBIDDEN_RESPONSE,
+            status.HTTP_404_NOT_FOUND: NOT_FOUND_RESPONSE
         }
     )
     def update(self, request, *args, **kwargs):
@@ -270,13 +333,12 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Частичное обновление файла",
-        tags=["Библиотека"],
         description="Обновляет только указанные поля методического материала",
-        request=OpenApiResponse,
+        request=LibraryFileSerializer,
         responses={
             status.HTTP_200_OK: OpenApiResponse(
                 description="Файл обновлён",
-                response=LibraryFileSerializer,
+                response=LibraryFileSerializer(),
                 examples=[
                     OpenApiExample(
                         "Пример ответа",
@@ -315,39 +377,9 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
                     }
                 )]
             ),
-            status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-                description="Пользователь не авторизован",
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(
-                    "Пример ответа",
-                    value={
-                        "detail": "Учетные данные не были предоставлены."
-                    }
-                )]),
-            status.HTTP_403_FORBIDDEN: OpenApiResponse(
-                description="Нет прав на редактирование",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "У вас недостаточно прав для выполнения данного действия."
-                        }
-                    )
-                ]
-            ),
-            status.HTTP_404_NOT_FOUND: OpenApiResponse(
-                description="Файл не найден",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "No LibraryFile matches the given query."
-                        }
-                    )
-                ]
-            )
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+            status.HTTP_403_FORBIDDEN: FORBIDDEN_RESPONSE,
+            status.HTTP_404_NOT_FOUND: NOT_FOUND_RESPONSE
         }
     )
     def partial_update(self, request, *args, **kwargs):
@@ -355,46 +387,15 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
 
     @extend_schema(
         summary="Удалить файл библиотеки",
-        tags=["Библиотека"],
         description="Удаляет выбранный файл",
         responses={
             status.HTTP_204_NO_CONTENT: OpenApiResponse(
                 description="Файл успешно удален",
                 response=OpenApiTypes.NONE
             ),
-            status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-                description="Пользователь не авторизован",
-                response=OpenApiTypes.OBJECT,
-                examples=[OpenApiExample(
-                    "Пример ответа",
-                    value={
-                        "detail": "Учетные данные не были предоставлены."
-                    }
-                )]),
-            status.HTTP_403_FORBIDDEN: OpenApiResponse(
-                description="Нет прав на редактирование",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "У вас недостаточно прав для выполнения данного действия."
-                        }
-                    )
-                ]
-            ),
-            status.HTTP_404_NOT_FOUND: OpenApiResponse(
-                description="Файл не найден",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример ответа",
-                        value={
-                            "detail": "No LibraryFile matches the given query."
-                        }
-                    )
-                ]
-            )
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE,
+            status.HTTP_403_FORBIDDEN: FORBIDDEN_RESPONSE,
+            status.HTTP_404_NOT_FOUND: NOT_FOUND_RESPONSE
         }
     )
     def destroy(self, request, *args, **kwargs):

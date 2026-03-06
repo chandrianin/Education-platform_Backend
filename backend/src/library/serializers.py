@@ -12,24 +12,20 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name']
 
 
-def validate_file_extension(value, file_type):
-    """Валидатор для поддерживаемых расширений"""
+def get_file_type_by_extension(filename):
     FILE_TYPE_EXTENSIONS = {
         'document': ['.pdf', '.doc', '.docx', '.odt', '.ppt', '.pptx'],
         'image': ['.jpg', '.jpeg', '.png'],
         'video': ['.mp4'],
     }
 
-    ext = os.path.splitext(value.name)[1]
+    ext = os.path.splitext(filename)[1].lower()
 
-    valid_extensions = [ext for exts in FILE_TYPE_EXTENSIONS.values() for ext in exts]
-    if ext not in valid_extensions:
-        raise ValidationError('Неподдерживаемый формат файла.')
+    for file_type, extensions in FILE_TYPE_EXTENSIONS.items():
+        if ext in extensions:
+            return file_type
 
-    allowed = FILE_TYPE_EXTENSIONS.get(file_type)
-    if allowed and ext not in allowed:
-        raise ValidationError(f"Файл с расширением {ext} не соответствует типу {file_type}.")
-
+    raise ValidationError('Неподдерживаемый формат файла.')
 
 class LibraryFileSerializer(serializers.ModelSerializer):
     author_name = serializers.ReadOnlyField(source='author.username')
@@ -37,11 +33,11 @@ class LibraryFileSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         file = data.get('file')
-        file_type = data.get('file_type')
-        if file and file_type:
-            validate_file_extension(file, file_type)
-        return data
 
+        if file:
+            data['file_type'] = get_file_type_by_extension(file.name)
+
+        return data
     class Meta:
         model = LibraryFile
         fields = [
@@ -49,4 +45,4 @@ class LibraryFileSerializer(serializers.ModelSerializer):
             'file_type', 'file', 'category_details',
             'author_name', 'created_at'
         ]
-        read_only_fields = ['slug', 'author_name', 'created_at']
+        read_only_fields = ['slug', 'author_name', 'created_at', "file_type"]
