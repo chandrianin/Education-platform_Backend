@@ -71,7 +71,6 @@ class LibraryFile(models.Model):
                 old_file_name = LibraryFile.objects.get(pk=self.id).file.name
             except LibraryFile.DoesNotExist:
                 pass
-        super().save(*args, **kwargs)
 
         if old_file_name and old_file_name != (self.file.name if self.file else None):
             storage = self.file.storage if self.file else None
