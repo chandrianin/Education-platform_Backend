@@ -3,11 +3,26 @@
 from django.db import migrations
 
 
-class Migration(migrations.Migration):
+def create_categories(apps, schema_editor):
+    Category = apps.get_model('library', 'Category')
 
+    default_categories = [
+        'Методические материалы',
+        'Видео',
+        'Изображения',
+        'Тестовые документы 1',
+        'Тестовые документы 2'
+    ]
+
+    for name in default_categories:
+        Category.objects.get_or_create(name=name)
+
+
+class Migration(migrations.Migration):
     dependencies = [
         ('library', '0001_initial'),
     ]
 
     operations = [
+        migrations.RunPython(create_categories),
     ]
