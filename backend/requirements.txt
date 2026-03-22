@@ -9,3 +9,4 @@ Pillow
 django-unfold
 pytils
 django-filter
+gunicorn

@@ -1,10 +1,7 @@
 services:
   db:
     image: postgres:15
-    deploy:
-      resources:
-        limits:
-          memory: 300M
+#    mem_limit: 300m
     container_name: education_db
     restart: always
     volumes:
@@ -20,12 +17,18 @@ services:
 
   web:
     build: ./backend
-    deploy:
-      resources:
-        limits:
-          memory: 400M
+#    mem_limit: 400m
+    working_dir: /app/src
+    command: >
+      gunicorn core.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --threads 2
+      --timeout 30
+      --access-logfile -
+      --error-logfile -
     container_name: education_backend
-    command: python src/manage.py runserver 0.0.0.0:8000
+    restart: always
     volumes:
       - ./backend/src:/app/src
       - ./backend/static:/app/static
