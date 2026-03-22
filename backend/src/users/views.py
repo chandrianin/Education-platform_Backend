@@ -1,13 +1,24 @@
 from django.contrib.auth import logout
 from django.contrib.auth.models import User
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
-from rest_framework import generics, status
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, extend_schema_view
+from rest_framework import generics, status, mixins
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .serializers import UserSerializer, RegisterSerializer
+
+UNAUTHORIZED_RESPONSE = OpenApiResponse(
+    description="Пользователь не авторизован",
+    response=OpenApiTypes.OBJECT,
+    examples=[OpenApiExample(
+        "Пример ответа",
+        value={
+            "detail": "Учетные данные не были предоставлены."
+        }
+    )]
+)
 
 
 @extend_schema(
@@ -59,30 +70,43 @@ class CustomObtainAuthToken(ObtainAuthToken):
     pass
 
 
-@extend_schema(
-    summary="Получение данных авторизованного профиля",
-    tags=["Профиль"],
-    responses={
-        status.HTTP_200_OK: UserSerializer,
-        status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-            description="Пользователь не авторизован",
-            response=OpenApiTypes.OBJECT,
-            examples=[
-                OpenApiExample(
-                    "Пример",
-                    value={"detail": "Учетные данные не были предоставлены."},
-                    response_only=True
-                )
-            ]
-        )
-    }
+@extend_schema_view(
+    get=extend_schema(
+        summary="Получение данных авторизованного профиля",
+        tags=["Профиль"],
+        responses={
+            status.HTTP_200_OK: UserSerializer,
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE
+        }
+    ),
+    patch=extend_schema(
+        summary="Обновление данных авторизованного профиля",
+        tags=["Профиль"],
+        request=UserSerializer,
+        responses={
+            status.HTTP_200_OK: UserSerializer,
+            status.HTTP_400_BAD_REQUEST: OpenApiResponse(
+                description="Некорректные данные",
+                response=OpenApiTypes.OBJECT
+            ),
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE
+        }
+    ),
 )
-class MyProfileView(APIView):
+class MyProfileView(mixins.RetrieveModelMixin,
+                    mixins.UpdateModelMixin,
+                    generics.GenericAPIView):
+    serializer_class = UserSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_object(self):
+        return self.request.user
+
     def get(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return self.retrieve(request)
+
+    def patch(self, request):
+        return self.partial_update(request)
 
 
 @extend_schema(
@@ -126,27 +150,20 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
 
 
-class LogoutAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(
+@extend_schema_view(
+    post=extend_schema(
         summary="Выход из системы",
         tags=["Аутентификация"],
         description="Удаляет токен авторизации и закрывает сессию",
         responses={
             status.HTTP_200_OK: OpenApiResponse(description="Успешный выход"),
-            status.HTTP_401_UNAUTHORIZED: OpenApiResponse(
-                description="Пользователь не авторизован",
-                response=OpenApiTypes.OBJECT,
-                examples=[
-                    OpenApiExample(
-                        "Пример",
-                        value={"detail": "Учетные данные не были предоставлены."},
-                        response_only=True
-                    )
-                ]
-            )},
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE
+        },
     )
+)
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         if hasattr(request.user, 'auth_token'):
             request.user.auth_token.delete()
