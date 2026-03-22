@@ -106,8 +106,46 @@ class LibraryFileViewSet(viewsets.ModelViewSet):
     filterset_fields = ['categories', 'file_type', 'author']
     ordering_fields = ['title', 'created_at']
     ordering = ['-created_at']  # по умолчанию новые сверху
-    search_fields = ['title', 'description', 'author__full_name']
+    search_fields = ['title', 'description', 'author__profile__full_name', 'author__username']
     lookup_field = 'slug'
+
+    def get_queryset(self):
+        return super().get_queryset().select_related('author__profile')
+
+    @extend_schema(
+        summary="Список избранных файлов пользователя",
+        description="Возвращает список файлов, которые пользователь отметил как избранные",
+        responses={
+            status.HTTP_200_OK: OpenApiResponse(
+                description="Список избранных файлов",
+                response=LibraryFileSerializer(many=True),
+                examples=[
+                    OpenApiExample(
+                        "Пример ответа",
+                        value=[
+                            {
+                                "slug": "primer-dokumenta",
+                                "title": "Пример документа",
+                                "description": "Описание документа",
+                                "file_type": "document",
+                                "file": "https://methodical-space.ru/media/library/2026/02/primer.pdf",
+                                "category_details": [{"id": 1, "name": "Чек-лист"}],
+                                "author_name": "ivan",
+                                "created_at": "2026-02-10T12:00:00Z"
+                            }
+                        ]
+                    )
+                ]
+            ),
+            status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE
+        },
+    )
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def favorites(self, request):
+        profile = request.user.profile
+        favorite_files = profile.favorites.all()
+        serializer = self.get_serializer(favorite_files, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Добавление файла в избранное авторизованного пользователя",
