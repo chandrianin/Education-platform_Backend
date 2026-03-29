@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'users',
     'library',
     'route',
+    'main',
+    'reflection'
 
 ]
 
