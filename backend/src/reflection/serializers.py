@@ -6,13 +6,21 @@ from .models import Question, Answer
 class QuestionSerializer(serializers.ModelSerializer):
     user_answer = serializers.SerializerMethodField()
 
+    can_answer = serializers.SerializerMethodField()
+
+    def get_can_answer(self, obj):
+        if not obj.user_answer_id:
+            return True
+
+        return obj.user_value_int is None and obj.user_value_text is None
+
     class Meta:
         model = Question
         fields = [
             "id",
             "text",
             "type",
-            "is_active",
+            "can_answer",
             "user_answer",
         ]
 
@@ -39,16 +47,30 @@ class AnswerWriteSerializer(serializers.Serializer):
         if not question.is_active:
             raise serializers.ValidationError("Вопрос неактивен")
 
+        value_int = attrs.get("value_int")
+        value_text = attrs.get("value_text")
+
+        if value_text is not None:
+            value_text = value_text.strip()
+            value_text = value_text or None
+            attrs["value_text"] = value_text
+
+        if value_int is None and value_text is None:
+            return attrs
+
         if question.type == Question.QuestionType.CHOICE:
-            if attrs.get("value_int") is None:
+            if value_int is None:
                 raise serializers.ValidationError("Требуется value_int")
-            if not (1 <= attrs["value_int"] <= 5):
+
+            if not (1 <= value_int <= 5):
                 raise serializers.ValidationError("value_int должен быть от 1 до 5")
+
             attrs["value_text"] = None
 
         elif question.type == Question.QuestionType.TEXT:
-            if not attrs.get("value_text"):
+            if value_text is None:
                 raise serializers.ValidationError("Требуется value_text")
+
             attrs["value_int"] = None
 
         return attrs
@@ -56,6 +78,8 @@ class AnswerWriteSerializer(serializers.Serializer):
 
 class AnswerBulkSerializer(serializers.Serializer):
     answers = AnswerWriteSerializer(many=True)
+    value_int = serializers.IntegerField(required=False, allow_null=True)
+    value_text = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     def create(self, validated_data):
         user = self.context["request"].user
