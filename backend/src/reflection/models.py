@@ -18,7 +18,7 @@ class Question(models.Model):
 
 
 class Answer(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reflection_answers")
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
 
     value_int = models.IntegerField(null=True, blank=True)
@@ -26,10 +26,11 @@ class Answer(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
 
-    indexes = [
-        models.Index(fields=["user", "created_at"]),
-        models.Index(fields=["user", "question"]),
-    ]
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["user", "question"]),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.question_id}"
