@@ -209,3 +209,5 @@ __marimo__/
 
 /.idea
 /.env
+
+/backend/src/request_logs/
