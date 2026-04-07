@@ -27,9 +27,16 @@ def get_file_type_by_extension(filename):
 
     raise ValidationError('Неподдерживаемый формат файла.')
 
+
 class LibraryFileSerializer(serializers.ModelSerializer):
     author_name = serializers.ReadOnlyField(source='author.username')
     category_details = CategorySerializer(source='categories', many=True, read_only=True)
+    categories = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        many=True,
+        write_only=True,
+        required=False
+    )
 
     def validate(self, data):
         file = data.get('file')
@@ -38,11 +45,20 @@ class LibraryFileSerializer(serializers.ModelSerializer):
             data['file_type'] = get_file_type_by_extension(file.name)
 
         return data
+
+    def create(self, validated_data):
+        categories_data = validated_data.pop('categories', [])
+        instance = super().create(validated_data)
+        if categories_data:
+            instance.categories.set(categories_data)
+        return instance
+
     class Meta:
         model = LibraryFile
         fields = [
             'slug', 'title', 'description',
             'file_type', 'file', 'category_details',
+            'categories',
             'author_name', 'created_at'
         ]
         read_only_fields = ['slug', 'author_name', 'created_at', "file_type"]
