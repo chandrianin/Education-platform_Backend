@@ -23,12 +23,15 @@ class ActiveQuestionListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        today = now().date()
+        current = now()
+
+        start = current.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = current.replace(hour=23, minute=59, second=59, microsecond=999999)
 
         user_answers = Answer.objects.filter(
             user=self.request.user,
             question=OuterRef("pk"),
-            created_at__date=today
+            created_at__range=(start, end)
         ).order_by("-created_at")
 
         return Question.objects.filter(is_active=True).annotate(
