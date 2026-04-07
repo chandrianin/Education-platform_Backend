@@ -1,13 +1,15 @@
 services:
   db:
     image: postgres:15
-#    mem_limit: 300m
+    #    mem_limit: 300m
     container_name: education_db
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     env_file:
       - .env
     environment:
@@ -17,28 +19,56 @@ services:
 
   web:
     build: ./backend
-#    mem_limit: 400m
+    #    mem_limit: 400m
     working_dir: /app/src
-    command: >
-      gunicorn core.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 3
-      --threads 2
-      --timeout 30
-      --access-logfile -
-      --error-logfile -
+    #    command: >
+    #      gunicorn core.wsgi:application
+    #      --bind 0.0.0.0:8000
+    #      --workers 3
+    #      --threads 2
+    #      --timeout 30
+    #      --access-logfile -
+    #      --error-logfile -
+    command: python manage.py runserver 0.0.0.0:8000
     container_name: education_backend
     restart: always
     volumes:
       - ./backend/src:/app/src
-      - ./backend/static:/app/static
-      - ./backend/media:/app/media
-    ports:
-      - "8000:8000"
+      - /var/www/backend/static:/app/static
+      - /var/www/backend/media:/app/media
+    networks:
+      - backend
     env_file:
       - .env
     depends_on:
       - db
 
+  nginx:
+    image: nginx:alpine
+    container_name: education_nginx
+    restart: always
+
+    ports:
+      - "80:80"
+      - "443:443"
+
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+      - /var/www/static:/var/www/static
+      - /var/www/media:/var/www/media
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/react:/var/www/react
+
+    depends_on:
+      - web
+
+    networks:
+      - backend
+
+
 volumes:
   postgres_data:
+
+networks:
+  backend:
+    driver: bridge
