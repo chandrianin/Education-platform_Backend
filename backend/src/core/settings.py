@@ -57,7 +57,8 @@ INSTALLED_APPS = [
     'library',
     'route',
     'main',
-    'reflection'
+    'reflection',
+    'practicum',
 
 ]
 
