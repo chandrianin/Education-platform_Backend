@@ -4,15 +4,10 @@ from .models import Question, Answer
 
 
 class QuestionSerializer(serializers.ModelSerializer):
+    """
+        Сериализатор вопроса с текущим ответом пользователя (если есть за сегодня)
+    """
     user_answer = serializers.SerializerMethodField()
-
-    can_answer = serializers.SerializerMethodField()
-
-    def get_can_answer(self, obj):
-        if not obj.user_answer_id:
-            return True
-
-        return obj.user_value_int is None and obj.user_value_text is None
 
     class Meta:
         model = Question
@@ -20,7 +15,6 @@ class QuestionSerializer(serializers.ModelSerializer):
             "id",
             "text",
             "type",
-            "can_answer",
             "user_answer",
         ]
 
@@ -37,11 +31,20 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class AnswerWriteSerializer(serializers.Serializer):
+    """
+        Сериализатор для создания/обновления ответа
+    """
     question = serializers.PrimaryKeyRelatedField(queryset=Question.objects.all())
     value_int = serializers.IntegerField(required=False, allow_null=True)
     value_text = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
     def validate(self, attrs):
+        """
+            Валидация:
+                - Активность вопроса
+                - Наличие нужного поля для типа вопроса
+                - Диапазон value_int для choice (1–5)
+        """
         question = attrs["question"]
 
         if not question.is_active:
@@ -77,6 +80,9 @@ class AnswerWriteSerializer(serializers.Serializer):
 
 
 class AnswerBulkSerializer(serializers.Serializer):
+    """
+        Сериализатор для создания/обновления ответов
+    """
     answers = AnswerWriteSerializer(many=True)
     value_int = serializers.IntegerField(required=False, allow_null=True)
     value_text = serializers.CharField(required=False, allow_null=True, allow_blank=True)
@@ -115,6 +121,9 @@ class AnswerBulkSerializer(serializers.Serializer):
         return result
 
     def validate(self, attrs):
+        """
+            Проверка на дубликаты вопросов в одном запросе
+        """
         questions = [item["question"].id for item in attrs["answers"]]
 
         if len(questions) != len(set(questions)):
@@ -124,6 +133,9 @@ class AnswerBulkSerializer(serializers.Serializer):
 
 
 class AnswerSerializer(serializers.ModelSerializer):
+    """
+        Сериализатор ответа
+    """
     question_id = serializers.IntegerField(source="question.id")
 
     class Meta:
@@ -138,6 +150,9 @@ class AnswerSerializer(serializers.ModelSerializer):
 
 
 class AnswerHistoryItemSerializer(serializers.ModelSerializer):
+    """
+        Сериализатор отдельного ответа для истории ответов пользователя
+    """
     class Meta:
         model = Answer
         fields = [
@@ -148,6 +163,9 @@ class AnswerHistoryItemSerializer(serializers.ModelSerializer):
 
 
 class QuestionHistorySerializer(serializers.ModelSerializer):
+    """
+        Сериализатор истории вопросов с ответами пользователя
+    """
     answers = serializers.SerializerMethodField()
 
     class Meta:

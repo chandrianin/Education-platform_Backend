@@ -56,8 +56,7 @@ class ActiveQuestionListView(generics.ListAPIView):
                                 "id": 1,
                                 "text": "Оцените день",
                                 "type": "choice",
-                                "is_active": True,
-                                "user_answer": None
+                                "user_answer": "null"
                             },
                             {
                                 "id": 2,
