@@ -40,7 +40,7 @@ class Answer(models.Model):
             - text (str): Текст ответа
             - attempt (int): Номер попытки пользователя для данного кейса
             - status (str): Статус ответа (check / ok / fail)
-            - checked_by (FK | null): Администратор\, проверивший ответ
+            - checked_by (FK | null): Администратор, проверивший ответ
             - checked_at (datetime | null): Дата проверки
             - comment (str | null): Комментарий проверяющего
             - created_at (datetime): Дата и время создания ответа

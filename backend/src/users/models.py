@@ -1,8 +1,24 @@
+from PIL import Image
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from rest_framework.exceptions import ValidationError
 
+
+def validate_image(file):
+    try:
+        img = Image.open(file)
+        img.verify()
+    except Exception:
+        raise ValidationError("Некорректное изображение")
+
+    if img.format not in ['JPEG', 'PNG']:
+        raise ValidationError("Разрешены только JPEG и PNG")
+
+def validate_size(file):
+    if file.size > 3 * 1024 * 1024:
+        raise ValidationError("Максимум 3MB")
 
 
 class Profile(models.Model):
@@ -18,8 +34,13 @@ class Profile(models.Model):
 
     organization = models.CharField("Образовательная организация", max_length=255, blank=True)
 
-    photo = models.ImageField("Фото профиля", upload_to='profiles/', null=True, blank=True)
-
+    photo = models.ImageField(
+        "Фото профиля",
+        upload_to='profiles/',
+        validators=[validate_image, validate_size],
+        null=True,
+        blank=True
+    )
 
     favorites = models.ManyToManyField(
         'library.LibraryFile',

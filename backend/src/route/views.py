@@ -1,4 +1,6 @@
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiResponse, OpenApiExample, extend_schema
 from rest_framework import generics, permissions, status
@@ -87,8 +89,9 @@ NOT_FOUND_COMPLETION_RESPONSE = OpenApiResponse(
         status.HTTP_401_UNAUTHORIZED: UNAUTHORIZED_RESPONSE
     }
 )
+@method_decorator(cache_page(120), name='dispatch')
 class ModuleListView(generics.ListAPIView):
-    queryset = Module.objects.all().order_by('order')
+    queryset = Module.objects.all().order_by('order').prefetch_related('items__library_file')
     serializer_class = ModuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -130,8 +133,9 @@ class ModuleListView(generics.ListAPIView):
         status.HTTP_404_NOT_FOUND: NOT_FOUND_MODULE_RESPONSE
     }
 )
+@method_decorator(cache_page(120), name='dispatch')
 class ModuleDetailView(generics.RetrieveAPIView):
-    queryset = Module.objects.all()
+    queryset = Module.objects.all().prefetch_related('items__library_file')
     serializer_class = ModuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 

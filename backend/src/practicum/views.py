@@ -2,7 +2,7 @@ from django.db.models import Q, Prefetch, OuterRef, Subquery
 from drf_spectacular.utils import OpenApiResponse, OpenApiExample, extend_schema
 from rest_framework import status
 from rest_framework.mixins import CreateModelMixin, UpdateModelMixin
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.viewsets import ReadOnlyModelViewSet, GenericViewSet
 
 from practicum.models import Answer, Case
@@ -12,6 +12,7 @@ from practicum.serializers import CaseWithAnswersSerializer, AnswerCreateSeriali
 
 class OpenCasesViewSet(ReadOnlyModelViewSet):
     serializer_class = CaseWithAnswersSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
@@ -82,6 +83,7 @@ class OpenCasesViewSet(ReadOnlyModelViewSet):
 
 class ClosedCasesViewSet(ReadOnlyModelViewSet):
     serializer_class = CaseWithAnswersSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
@@ -152,6 +154,7 @@ class ClosedCasesViewSet(ReadOnlyModelViewSet):
 
 class AnswerViewSet(CreateModelMixin, GenericViewSet):
     serializer_class = AnswerCreateSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         return Answer.objects.filter(user=self.request.user).select_related("case")

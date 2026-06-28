@@ -21,21 +21,21 @@ services:
     build: ./backend
     #    mem_limit: 400m
     working_dir: /app/src
-    #    command: >
-    #      gunicorn core.wsgi:application
-    #      --bind 0.0.0.0:8000
-    #      --workers 3
-    #      --threads 2
-    #      --timeout 30
-    #      --access-logfile -
-    #      --error-logfile -
-    command: python manage.py runserver 0.0.0.0:8000
+    command: >
+      gunicorn core.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 2
+      --threads 1
+      --timeout 30
+      --access-logfile -
+      --error-logfile -
+    #    command: python manage.py runserver 0.0.0.0:8000
     container_name: education_backend
     restart: always
     volumes:
       - ./backend/src:/app/src
-      - /var/www/backend/static:/app/static
-      - /var/www/backend/media:/app/media
+      - /var/www/static:/var/www/static
+      - /var/www/media:/var/www/media
     networks:
       - backend
     env_file:
@@ -71,4 +71,5 @@ volumes:
 
 networks:
   backend:
+    name: education_network
     driver: bridge

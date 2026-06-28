@@ -1,12 +1,16 @@
 import logging
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from rest_framework import permissions, viewsets, filters, status
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from .models import LibraryFile, Category
 from .serializers import LibraryFileSerializer, CategorySerializer
 
@@ -72,6 +76,18 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
         return obj.author == request.user
 
 
+FILE_TYPE_EXTENSIONS = {
+    'document': ['.pdf', '.doc', '.docx', '.odt', '.ppt', '.pptx'],
+    'image': ['.jpg', '.jpeg', '.png'],
+    'video': ['.mp4'],
+}
+
+@method_decorator(cache_page(3000), name='dispatch')
+class AllowedFileTypesView(APIView):
+    def get(self, request):
+        return Response(FILE_TYPE_EXTENSIONS)
+
+
 @extend_schema(
     summary="Список категорий библиотеки",
     description="Возвращает список всех категорий методических материалов",
@@ -100,7 +116,7 @@ class LibraryCategoriesView(ListAPIView):
 class LibraryFileViewSet(viewsets.ModelViewSet):
     queryset = LibraryFile.objects.all()
     serializer_class = LibraryFileSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
 
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     filterset_fields = ['categories', 'file_type', 'author']

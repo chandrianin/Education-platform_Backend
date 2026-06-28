@@ -16,29 +16,28 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-env = environ.Env(
-    DEBUG=(bool, False)
-)
+env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR.parent, '.env'))
 
 SECRET_KEY = env('SECRET_KEY')
-DEBUG = env('DEBUG')
+DEBUG = env.bool('DEBUG')
 
 CSRF_TRUSTED_ORIGINS = ['https://methodical-space.ru']
 
 # Допустимые названия домена
-ALLOWED_HOSTS = ['methodical-space.ru']
+ALLOWED_HOSTS = ['methodical-space.ru', 'localhost']
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://methodical-space.ru",
 ]
+CORS_ORIGINS_WHITELIST = ["https://methodical-space.ru"]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 
 
 INSTALLED_APPS = [
-    'unfold',
+    # 'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -47,7 +46,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'corsheaders',
     'rest_framework',
-    'rest_framework.authtoken',  # Для авторизации Android
+    'rest_framework.authtoken',
     'django_filters',
     'core',
 
@@ -59,7 +58,7 @@ INSTALLED_APPS = [
     'main',
     'reflection',
     'practicum',
-
+    'monitoring'
 ]
 
 REST_FRAMEWORK = {
@@ -81,6 +80,13 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.RequestLoggingMiddleware'
 ]
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+    }
+}
 
 ROOT_URLCONF = 'core.urls'
 
@@ -132,10 +138,10 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
-STATIC_ROOT = '/var/www/backend/static/'
+STATIC_ROOT = '/var/www/static/'
 
 MEDIA_URL = 'media/'
-MEDIA_ROOT = '/var/www/backend/media/'
+MEDIA_ROOT = '/var/www/media/'
 
 SPECTACULAR_SETTINGS = {
     'APPEND_COMPONENTS': {
@@ -181,3 +187,14 @@ LOGGING = {
         },
     },
 }
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_PATH = '/'
+CSRF_COOKIE_PATH = '/'
+
+CSRF_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SAMESITE = 'None'

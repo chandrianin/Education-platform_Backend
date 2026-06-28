@@ -1,4 +1,4 @@
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Subquery, OuterRef
 from rest_framework import serializers
 
 from practicum.models import Answer, Case
@@ -34,6 +34,12 @@ class CaseWithAnswersSerializer(serializers.ModelSerializer):
 
     def get_answers(self, obj):
         qs = getattr(obj, "user_answers", [])
+
+        qs = sorted(
+            qs,
+            key=lambda x: x.created_at
+        )
+
         return AnswerReadSerializer(qs, many=True).data
 
 
@@ -59,11 +65,23 @@ class AnswerCreateSerializer(serializers.ModelSerializer):
     def validate_case(self, case):
         user = self.context["request"].user
 
-        base_qs = Case.objects.filter(id=case.id, is_active=True)
+        last_answer = Answer.objects.filter(
+            case=OuterRef("pk"),
+            user=user
+        ).order_by("-created_at")
 
-        allowed = base_qs.filter(
-            Q(answer__isnull=True) |
-            Q(answer__user=user, answer__status=Answer.StatusType.FAIL)
+        last_status = Subquery(last_answer.values("status")[:1])
+
+        qs = Case.objects.filter(
+            id=case.id,
+            is_active=True
+        ).annotate(
+            last_user_status=last_status
+        )
+
+        allowed = qs.filter(
+            Q(last_user_status__isnull=True) |
+            Q(last_user_status=Answer.StatusType.FAIL)
         ).exists()
 
         if not allowed:
@@ -105,6 +123,7 @@ class AnswerCheckSerializer(serializers.ModelSerializer):
     """
         Сериализатор для создания администратором проверки ответа
     """
+
     class Meta:
         model = Answer
         fields = ["status", "comment"]

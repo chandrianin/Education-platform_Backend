@@ -4,6 +4,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, extend_schema_view
 from rest_framework import generics, status, mixins
 from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -107,6 +108,31 @@ class MyProfileView(mixins.RetrieveModelMixin,
 
     def patch(self, request):
         return self.partial_update(request)
+
+
+class ProfilePhotoView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        profile = request.user.profile
+        file = request.FILES.get('photo')
+
+        if not file:
+            return Response(
+                {"detail": "Файл не передан"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if profile.photo:
+            profile.photo.delete(save=False)
+
+        profile.photo = file
+        profile.save()
+
+        return Response({
+            "photo": profile.photo.url if profile.photo else None
+        })
 
 
 @extend_schema(
